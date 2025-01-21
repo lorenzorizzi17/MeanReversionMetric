@@ -89,7 +89,7 @@ def removeTrend(dataset : pd.DataFrame, mesh : np.array, ax = None) -> np.array:
     Returns:
      - np.array: An array of cleaned data segments with the linear trend removed.
     """
-    l = []
+    l = np.zeros(len(mesh), dtype = object)
     for i in range(len(mesh)-1):
         r = (int(mesh[i]), int(mesh[i+1]))
         # resized dataset
@@ -102,7 +102,7 @@ def removeTrend(dataset : pd.DataFrame, mesh : np.array, ax = None) -> np.array:
         if (ax is not None):
             ax.plot(np.linspace(curr_dataset.index[0],curr_dataset.index[-1], 1000 ), linear_fit(np.linspace(curr_dataset.index[0],curr_dataset.index[-1], 1000 ), *popt), "r")
         cleaned_data = curr_dataset - linear_fit(curr_dataset.index, *popt)
-        l.append(cleaned_data)
+        l[i] = cleaned_data
     return l
 
 
