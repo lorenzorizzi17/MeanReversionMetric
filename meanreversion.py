@@ -141,7 +141,7 @@ def draw_info(data : pd.DataFrame, start = None, end = None):
 
 
 ## WIP !!! what if we chose a gaussian sampling? (The distance between two points is gaussian distributed)
-def assess_normality(dataset : pd.Series, lambda_ : int, n : int, ax: None) -> float:
+def assess_normality(dataset : pd.Series, lambda_ : int, n : int, ax = None) -> float:
     """
     Assess the normality of a dataset by sampling it at intervals determined by a Poisson distribution.
 
@@ -169,8 +169,93 @@ def assess_normality(dataset : pd.Series, lambda_ : int, n : int, ax: None) -> f
         x = np.concatenate((x,chosen_data), axis = 0)
     if (ax is not None):
         bin_edges = np.arange(np.min(x), np.max(x), 50)
-        ax.hist(x, bins = "auto", density=True)
+        ax.hist(x, bins = "auto", density=True, edgecolor = "black")
         ax.set_title(f"Input dataset has {len(dataset)} points"+ '\n'+f"Sampling every ~ {lambda_} points, repeating {n} times " + '\n' + f"Total number of points in the distr: {len(x)}" )
 
 
     return anderson(x).statistic
+
+
+###########################################################################
+
+def find_zeros(t : np.array, x : np.array) -> np.array:
+    """
+    Find the zeros of a function based on its sampled values.
+    This function takes two numpy arrays, `t` and `x`, where `t` represents the
+    time or independent variable and `x` represents the dependent variable. It
+    returns the values of `t` where `x` crosses zero.
+    
+    Parameters:
+     - t (np.array): An array of time or independent variable values.
+     - x (np.array): An array of dependent variable values corresponding to `t`.
+
+    Returns:
+     - (np.array) An array of `t` values where `x` crosses zero.
+    """
+    assert len(t) == len(x), "t and x must have the same length"
+    zeros = []
+    for i in range(len(x)-1):
+        if x[i]*x[i+1] < 0:
+            zeros.append(t[i])
+    return np.array(zeros, dtype=float)
+
+def find_periods(t : np.array, x : np.array) -> np.array:
+    """
+    Calculate the periods between zero crossings in the given data.
+
+    Parameters:
+     - t (np.array): Array of time values.
+     - x (np.array): Array of corresponding data values.
+
+    Returns:
+     - np.array: Array of periods between zero crossings, each period is calculated as twice the difference between consecutive zero crossings.
+    """
+    zeros = find_zeros(t, x)
+    periods = []
+    for i in range(len(zeros)-1):
+        periods.append((zeros[i+1] - zeros[i])*2)
+    periods = np.array(periods, dtype=float)
+    return periods
+
+
+def find_amplitudes(t : np.array, x : np.array, factor = 0.3) -> np.array:
+    from scipy.signal import find_peaks
+    """
+    Find the amplitudes of the peaks in the given time series data.
+
+    Parameters:
+     - t (np.array): Array of time values.
+     - x (np.array): Array of corresponding data values.
+     - factor (float, optional): Factor to adjust the tollerance distance between peaks. Default is 0.3.
+
+    Returns:
+     - np.array: Array of amplitudes of the detected peaks.
+    """
+    dist = factor*len(x)*np.mean(find_periods(t, x))/(t.max()-t.min())
+    max_peaks, _ = find_peaks(x, distance=dist, height=0.0)
+    min_peaks, _ = find_peaks(-x, distance=dist, height=0.0)
+    return np.concatenate((x[max_peaks], -x[min_peaks]))
+
+
+
+
+def find_period_fft(t : np.array, x : np.array) -> tuple:
+    from scipy.fftpack import fft, fftfreq, ifft
+    """
+    Calculate the period and phase of a signal using Fast Fourier Transform (FFT).
+
+    Parameters:
+     - t (np.array): Array of time values.
+     - x (np.array): Array of signal values corresponding to the time values.
+
+    Returns:
+     - tuple: A tuple containing the period of the signal (1/max_freq) and the phase of the signal.
+    """
+    fourier = np.abs(fft(x))
+    freqs = fftfreq(len(t), t[1] - t[0])
+    mask = np.where(freqs > 0)
+    fourier = fourier[mask]
+    freqs = freqs[mask]
+    max_freq = freqs[np.argmax(fourier)]
+    phase = np.angle(fft(x)[np.argmax(fourier)])
+    return (1/max_freq, phase)
