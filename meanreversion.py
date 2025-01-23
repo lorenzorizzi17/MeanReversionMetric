@@ -256,6 +256,74 @@ def find_period_fft(t : np.array, x : np.array) -> tuple:
     mask = np.where(freqs > 0)
     fourier = fourier[mask]
     freqs = freqs[mask]
-    max_freq = freqs[np.argmax(fourier)]
-    phase = np.angle(fft(x)[np.argmax(fourier)])
+    max_freq = np.mean(freqs[np.argsort(fourier)][-3:])
+    #max_freq = freqs[np.argmax(fourier)]
+    phase = np.mean(np.angle(fft(x)[np.argsort(fourier)][-3:]))
+    #phase = np.angle(fft(x)[np.argmax(fourier)])
     return (1/max_freq, phase)
+
+
+def propagator(x : float, y : float, t : float, f : callable, g : callable, theta : list)  -> float:
+    """
+    Computes the propagator function for a given set of parameters. It uses a gaussian distribution to approximate the transition probability.
+
+    Parameters:
+     - x (float): Initial value.
+     - y (float): Final value.
+     - t (float): Time parameter.
+     - f (function): Function that takes t, x, and theta as arguments and returns a float.
+     - g (function): Function that takes x and theta as arguments and returns a float.
+     - theta (list): List of parameters for the functions f and g.
+
+    Returns:
+     - float: The value of the propagator function.
+    """
+    if t <= 1e-10:  # Prevent division by zero or instability
+        return 1e-10
+
+    g_val = g(x, theta)
+    variance = t * g_val**2
+
+    if variance <= 1e-10: 
+        return 1e-10    # Guard against negative or zero variance
+    
+    drift = y - x - f(t, x, theta) * t
+    return np.exp(-drift**2 / (2 * variance)) / np.sqrt(2 * np.pi * variance)
+
+def log_likelihood(theta : list, X : np.array, t : np.array, f : callable, g : callable) -> float:
+    """
+    Calculate the negative log-likelihood for a given set of parameters.
+
+    Parameters:
+     - theta (array-like): The parameters to be estimated.
+     - X (array-like): The observed data points.
+     - t (array-like): The time points corresponding to the observed data.
+     - f (function): The drift function of the model.
+     - g (function): The diffusion function of the model.
+
+    Returns:
+     - float: The negative log-likelihood value.
+    """
+    N = len(X)
+    logL = 0
+    for i in range(1, N):
+        p = propagator(X[i-1], X[i], t[i]-t[i-1], f, g, theta)
+        if p <= 1e-10:
+            return 1e6  # Large penalty to make this parameter set unlikely
+        logL += np.log(p)
+
+    regularization = 1e-6 * np.sum(np.array(theta)**2) # Add regularization (L2 norm)
+    return -(logL +regularization)
+
+
+def SDE_solver(x0 : float, t0 : float, T : float, dt : float,  mu, sigma):
+    """
+    Solve the SDE dx = mu(t, x) dt + sigma(t, x) dB
+    with x(t0) = x0, for t0 <= t <= T, with time step dt
+    """
+    N = int((T-t0)/dt)+1
+    X = np.zeros(N, dtype=float)
+    X[0] = x0
+    for i in range(1, N):
+        X[i] = X[i-1] + mu(i*dt, X[i-1]) * dt + sigma(i*dt,  X[i-1]) * np.sqrt(dt) * np.random.randn()
+    return X
