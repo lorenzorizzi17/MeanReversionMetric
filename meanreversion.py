@@ -75,6 +75,7 @@ def load_asset(name: str) -> pd.DataFrame:
     data = data.drop("<TICKVOL>", axis = 1)
     data = data.drop("<SPREAD>", axis = 1)
     data = data.rename(columns = {"<OPEN>": "Open", "<CLOSE>": "Close", "<HIGH>": "High", "<LOW>":"Low", "<VOL>":"Vol" })
+    data["Return"] = (data["Close"]-data["Open"])/data["Open"] * 100
     return data
 
 def removeTrend(dataset : pd.DataFrame, mesh : np.array, ax = None) -> np.array:
@@ -106,7 +107,7 @@ def removeTrend(dataset : pd.DataFrame, mesh : np.array, ax = None) -> np.array:
     return l
 
 
-def draw_info(data : pd.DataFrame, start = None, end = None):
+def draw_info(data : pd.DataFrame, start = None, end = None, kind = "default"):
     """
     Visualizes the time series of closing prices from a given DataFrame.
 
@@ -130,14 +131,21 @@ def draw_info(data : pd.DataFrame, start = None, end = None):
     if (end is None):
         end = (data["AbsTime"].values)[-1]
     filtered_data = data[(data["AbsTime"] > start) & (data["AbsTime"] < end)]
-    ax.plot(filtered_data["AbsTime"].values, filtered_data["Close"].values, "b", label = "Closing price")
-    ax.set_title("Time series of closing prices")
+
+    if (kind == "default"):
+        ax.plot(filtered_data.index, filtered_data["Close"].values, "b", label = "Closing price")
+        ax.set_title("Time series of closing prices")
+    if(kind == "return"):
+        ax.plot(filtered_data.index, filtered_data["Return"].values, "b", label = "Closing price")
+        ax.set_title("Time series of returns")
+    
     ax.legend(loc = "best")
     ax.set_xlabel("Time (datetime)")
     ax.set_ylabel("Price (a.u.)")
 
     fig.tight_layout()
     plt.show()
+
 
 
 ## WIP !!! what if we chose a gaussian sampling? (The distance between two points is gaussian distributed)
