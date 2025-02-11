@@ -181,7 +181,12 @@ def assess_normality(dataset : pd.Series, lambda_ : int, n : int, ax = None) -> 
         ax.set_title(f"Input dataset has {len(dataset)} points"+ '\n'+f"Sampling every ~ {lambda_} points, repeating {n} times " + '\n' + f"Total number of points in the distr: {len(x)}" )
 
 
-    return anderson(x).statistic
+    dev_from_normality = anderson(x).statistic
+    # we want to normalize tha value so that it is between 0 and 1
+    # when dev is high (high deviations), the process is not very gaussian distributed, so we want to return a value close to 1
+    # when dev is low, the process is white noise-like, so we want to return a value close to 0
+    normalized_norm = 2/(1+ np.exp(- dev_from_normality / 10)) - 1    # but maybe work on the normalization, this a sigma / 10
+    return normalized_norm
 
 
 ###########################################################################
