@@ -340,3 +340,52 @@ def SDE_solver(x0 : float, t0 : float, T : float, dt : float,  mu, sigma):
     for i in range(1, N):
         X[i] = X[i-1] + mu(i*dt, X[i-1]) * dt + sigma(i*dt,  X[i-1]) * np.sqrt(dt) * np.random.randn()
     return X
+
+
+def amplitude(x : np.array) -> float:
+    '''Calculate the amplitude of a time series
+    Args:
+        x : np.array : time series
+    Returns:
+        float : amplitude
+    '''
+    t =  np.linspace(0, 1, len(x))
+    slope, intercept = np.polyfit(t, x, 1)
+    x = x - (slope*t + intercept)
+    x = x / (x.max()-x.min())
+    x_filtered = savgol_filter(x, window_length=len(x)//5, polyorder=3)
+    amplitude = np.mean(mr.find_amplitudes(t, x_filtered))
+    return amplitude
+
+
+from statsmodels.tsa.arima.model import ARIMA
+def volatility(x : np.array) -> float:
+    '''Calculate the volatility of a time series usign AR(1) model
+    Args:
+        x : np.array : time series
+    Returns:
+        float : volatility
+    '''
+    t =  np.linspace(0, 1, len(x))
+    slope, intercept = np.polyfit(t, x, 1)
+    x = x - (slope*t + intercept)
+    x = x / (x.max()-x.min())
+    AR_model = ARIMA(x, order=(1,0,0), trend='n')
+    res = AR_model.fit()
+    AR_phi = res.arparams[0]
+    AR_sigma = res.params[-1]
+
+    if AR_phi <= 0 or AR_phi >= 1:
+        return np.nan
+    sigma_AR = np.sqrt(AR_sigma * (2 * theta_AR / (1 - AR_phi**2)))
+    
+    return sigma_AR
+
+def mean_reverting_index(x : np.array) -> float:
+    '''Calculate the mean-reverting index of a time series
+    Args:
+        x : np.array : time series
+    Returns:
+        float : mean-reverting index from 0 to 1
+    '''
+    return 2**(-volatility(x)/amplitude(x))
