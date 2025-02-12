@@ -349,16 +349,17 @@ def amplitude(x : np.array) -> float:
     Returns:
         float : amplitude
     '''
+    from scipy.signal import savgol_filter
     t =  np.linspace(0, 1, len(x))
     slope, intercept = np.polyfit(t, x, 1)
     x = x - (slope*t + intercept)
     x = x / (x.max()-x.min())
     x_filtered = savgol_filter(x, window_length=len(x)//5, polyorder=3)
-    amplitude = np.mean(mr.find_amplitudes(t, x_filtered))
+    amplitude = np.mean(find_amplitudes(t, x_filtered))
     return amplitude
 
 
-from statsmodels.tsa.arima.model import ARIMA
+
 def volatility(x : np.array) -> float:
     '''Calculate the volatility of a time series usign AR(1) model
     Args:
@@ -366,6 +367,7 @@ def volatility(x : np.array) -> float:
     Returns:
         float : volatility
     '''
+    from statsmodels.tsa.arima.model import ARIMA
     t =  np.linspace(0, 1, len(x))
     slope, intercept = np.polyfit(t, x, 1)
     x = x - (slope*t + intercept)
@@ -375,8 +377,8 @@ def volatility(x : np.array) -> float:
     AR_phi = res.arparams[0]
     AR_sigma = res.params[-1]
 
-    if AR_phi <= 0 or AR_phi >= 1:
-        return np.nan
+    dt = 1/len(x)
+    theta_AR = -np.log(AR_phi)/dt
     sigma_AR = np.sqrt(AR_sigma * (2 * theta_AR / (1 - AR_phi**2)))
     
     return sigma_AR
