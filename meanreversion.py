@@ -368,10 +368,15 @@ def volatility(x : np.array) -> float:
         float : volatility
     '''
     from statsmodels.tsa.arima.model import ARIMA
+    import warnings
+    from statsmodels.tools.sm_exceptions import ConvergenceWarning
+    warnings.simplefilter('ignore', ConvergenceWarning)
+    warnings.simplefilter('ignore', FutureWarning)
     t =  np.linspace(0, 1, len(x))
     slope, intercept = np.polyfit(t, x, 1)
     x = x - (slope*t + intercept)
     x = x / (x.max()-x.min())
+    x = pd.Series(x, index=np.arange(len(x)))
     AR_model = ARIMA(x, order=(1,0,0), trend='n')
     res = AR_model.fit()
     AR_phi = res.arparams[0]
@@ -383,11 +388,11 @@ def volatility(x : np.array) -> float:
     
     return sigma_AR
 
-def mean_reverting_index(x : np.array) -> float:
+def mean_revertion_index(x : np.array) -> float:
     '''Calculate the mean-reverting index of a time series
     Args:
         x : np.array : time series
     Returns:
         float : mean-reverting index from 0 to 1
     '''
-    return 2**(-volatility(x)/amplitude(x))
+    return volatility(x)/amplitude(x)
