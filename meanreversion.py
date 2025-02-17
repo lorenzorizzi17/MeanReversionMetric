@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 from scipy.optimize import curve_fit
 from scipy.stats import norm, anderson
+from scipy.special import erf
 
 import mplfinance as mp
 import yfinance as yf
@@ -149,20 +150,20 @@ def draw_info(data : pd.DataFrame, start = None, end = None, kind = "default"):
 
 
 ## WIP !!! what if we chose a gaussian sampling? (The distance between two points is gaussian distributed)
-def assess_normality(dataset : pd.Series, lambda_ : int, n : int, ax = None) -> float:
+def assess_normality(dataset : pd.Series, lambda_ : int, ax = None) -> float:
     """
     Assess the normality of a dataset by sampling it at intervals determined by a Poisson distribution.
 
     Parameters:
      - dataset (pd.Series): The input dataset to be assessed.
-     - lambda_ (int): The average interval between points to sample, based on a Poisson distribution.
-     - n (int): The number of times to repeat the sampling process.
+     - lambda_ (int): The average interval between points to sample, based on a Poisson distribution. We repeat the process lambda_ times
      - ax (matplotlib.axes._subplots.AxesSubplot or None): The axis on which to plot the histogram of the sampled data. If None, no plot is generated.
 
     Returns:
      - float: The Anderson-Darling test statistic for the sampled data, which indicates the degree of normality.
     """
     x = np.array([0])
+    n = lambda_ 
     # repeat the process n times
     for i in range(n):
         # we will sample the dataset choosing a value every lambda points on average (poisson distr)
@@ -185,7 +186,8 @@ def assess_normality(dataset : pd.Series, lambda_ : int, n : int, ax = None) -> 
     # we want to normalize tha value so that it is between 0 and 1
     # when dev is high (high deviations), the process is not very gaussian distributed, so we want to return a value close to 1
     # when dev is low, the process is white noise-like, so we want to return a value close to 0
-    normalized_norm = 2/(1+ np.exp(- dev_from_normality / 10)) - 1    # but maybe work on the normalization, this a sigma / 10
+    #normalized_norm = 2/(1+ np.exp(- dev_from_normality / 10)) - 1    # but maybe work on the normalization, this a sigma / 10
+    normalized_norm = erf(dev_from_normality /( 0.4*lambda_))
     return normalized_norm
 
 
