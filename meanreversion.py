@@ -190,51 +190,76 @@ def assess_normality(dataset : pd.Series, lambda_ : int, ax = None) -> float:
     normalized_norm = erf(dev_from_normality /( 0.4*lambda_))
     return normalized_norm
 
+def assess_normality_rolling(dataset, lambda_ : int, ax = None) -> float:
+    x = np.array([0])
+    n = lambda_
+    # repeat the process n times
+    for i in range(n):
+        # we will sample the dataset choosing a value every lambda points on average (poisson distr)
+        choice = [np.random.randint(lambda_)]  #choice is the vector of indices of chosen values
+        for i in range(1, int(len(dataset)/lambda_) ):
+            l = np.random.poisson(lambda_)
+            if (int(choice[-1]+l) > len(dataset)-1):
+                break
+            choice.append(int(choice[-1]+l))
+        #filtered data, chosen approx every lambda points
+        chosen_data = (dataset)[choice]
+        x = np.concatenate((x,chosen_data), axis = 0)
+    if (ax is not None):
+        bin_edges = np.arange(np.min(x), np.max(x), 50)
+        ax.hist(x, bins = "auto", density=True)
+        ax.set_title(f"Input dataset has {len(dataset)} points"+ '\n'+f"Sampling every ~ {lambda_} points, repeating {n} times " + '\n' + f"Total number of points in the distr: {len(x)}" )
+
+    dev_from_normality = anderson(x).statistic
+
+    # we want to normalize tha value so that it is between 0 and 1
+    # when dev is high (high deviations), the process is not very gaussian distributed, so we want to return a value close to 1
+    # when dev is low, the process is white noise-like, so we want to return a value close to 0
+    #normalized_norm = 2/(1+ np.exp(-dev_from_normality / (0.4*lambda_ ))) - 1    # but maybe work on the normalization
+    normalized_norm = erf(dev_from_normality /( 0.4*lambda_))
+    return normalized_norm
 
 ###########################################################################
 
-def find_zeros(t : np.array, x : np.array) -> np.array:
-    """
-    Find the zeros of a function based on its sampled values.
-    This function takes two numpy arrays, `t` and `x`, where `t` represents the
-    time or independent variable and `x` represents the dependent variable. It
-    returns the values of `t` where `x` crosses zero.
-    
-    Parameters:
-     - t (np.array): An array of time or independent variable values.
-     - x (np.array): An array of dependent variable values corresponding to `t`.
 
-    Returns:
-     - (np.array) An array of `t` values where `x` crosses zero.
+def find_zeros(x : np.array) -> np.array:
     """
-    assert len(t) == len(x), "t and x must have the same length"
+     Find the zeros of a function based on its sampled values.
+    
+     Parameters:
+      - x (np.array): An array of dependent variable values corresponding to `t`.
+
+     Returns:
+      - (np.array) An array of `t` values where `x` crosses zero.
+     """
+    t = np.arange(len(x))
     zeros = []
     for i in range(len(x)-1):
         if x[i]*x[i+1] < 0:
             zeros.append(t[i])
     return np.array(zeros, dtype=float)
 
-def find_periods(t : np.array, x : np.array) -> np.array:
+
+def find_period(x : np.array) -> float:
     """
     Calculate the periods between zero crossings in the given data.
 
     Parameters:
-     - t (np.array): Array of time values.
      - x (np.array): Array of corresponding data values.
 
     Returns:
      - np.array: Array of periods between zero crossings, each period is calculated as twice the difference between consecutive zero crossings.
     """
-    zeros = find_zeros(t, x)
+    from scipy.signal import savgol_filter
+    x = savgol_filter(x, len(x)//10, 3, mode='nearest')
+    zeros = find_zeros(x)
     periods = []
     for i in range(len(zeros)-1):
         periods.append((zeros[i+1] - zeros[i])*2)
-    periods = np.array(periods, dtype=float)
-    return periods
+    period = np.mean(periods)
+    return period
 
-
-def find_amplitudes(t : np.array, x : np.array, factor = 0.3) -> np.array:
-    from scipy.signal import find_peaks
+def find_amplitudes(x : np.array) -> float:
     """
     Find the amplitudes of the peaks in the given time series data.
 
@@ -246,37 +271,31 @@ def find_amplitudes(t : np.array, x : np.array, factor = 0.3) -> np.array:
     Returns:
      - np.array: Array of amplitudes of the detected peaks.
     """
-    dist = factor*len(x)*np.mean(find_periods(t, x))/(t.max()-t.min())
+    from scipy.signal import find_peaks
+    factor = 0.3
+    dist = factor*len(x)*np.mean(find_period(x))/(len(x))
     max_peaks, _ = find_peaks(x, distance=dist, height=0.0)
     min_peaks, _ = find_peaks(-x, distance=dist, height=0.0)
-    return np.concatenate((x[max_peaks], -x[min_peaks]))
+    return np.mean(np.concatenate((x[max_peaks], -x[min_peaks])))
 
+def find_period_fft(x : np.array) -> float:
+    """
+     Calculate the period and phase of a signal using Fast Fourier Transform (FFT).
 
+     Parameters:
+      - x (np.array): Array of signal values corresponding to the time values.
 
-
-def find_period_fft(t : np.array, x : np.array) -> tuple:
+     Returns:
+      - float: Period of the signal (1/max_freq)
+     """
     from scipy.fftpack import fft, fftfreq, ifft
-    """
-    Calculate the period and phase of a signal using Fast Fourier Transform (FFT).
-
-    Parameters:
-     - t (np.array): Array of time values.
-     - x (np.array): Array of signal values corresponding to the time values.
-
-    Returns:
-     - tuple: A tuple containing the period of the signal (1/max_freq) and the phase of the signal.
-    """
     fourier = np.abs(fft(x))
-    freqs = fftfreq(len(t), t[1] - t[0])
+    freqs = fftfreq(len(x))
     mask = np.where(freqs > 0)
     fourier = fourier[mask]
     freqs = freqs[mask]
     max_freq = np.mean(freqs[np.argsort(fourier)][-3:])
-    #max_freq = freqs[np.argmax(fourier)]
-    phase = np.mean(np.angle(fft(x)[np.argsort(fourier)][-3:]))
-    #phase = np.angle(fft(x)[np.argmax(fourier)])
-    return (1/max_freq, phase)
-
+    return 1/max_freq
 
 def propagator(x : float, y : float, t : float, f : callable, g : callable, theta : list)  -> float:
     """
@@ -344,57 +363,46 @@ def SDE_solver(x0 : float, t0 : float, T : float, dt : float,  mu, sigma):
     return X
 
 
-def amplitude(x : np.array) -> float:
-    '''Calculate the amplitude of a time series
-    Args:
-        x : np.array : time series
-    Returns:
-        float : amplitude
-    '''
-    from scipy.signal import savgol_filter
-    t =  np.linspace(0, 1, len(x))
-    slope, intercept = np.polyfit(t, x, 1)
-    x = x - (slope*t + intercept)
-    x = x / (x.max()-x.min())
-    x_filtered = savgol_filter(x, window_length=len(x)//5, polyorder=3)
-    amplitude = np.mean(find_amplitudes(t, x_filtered))
-    return amplitude
-
-
-
-def volatility(x : np.array) -> float:
+def volatility(x : pd.Series) -> float:
     '''Calculate the volatility of a time series usign AR(1) model
-    Args:
-        x : np.array : time series
-    Returns:
-        float : volatility
-    '''
+     Args:
+         x : np.array time series with rectified price
+     Returns:
+         float : volatility
+     '''
     from statsmodels.tsa.arima.model import ARIMA
-    import warnings
-    from statsmodels.tools.sm_exceptions import ConvergenceWarning
-    warnings.simplefilter('ignore', ConvergenceWarning)
-    warnings.simplefilter('ignore', FutureWarning)
-    t =  np.linspace(0, 1, len(x))
-    slope, intercept = np.polyfit(t, x, 1)
-    x = x - (slope*t + intercept)
-    x = x / (x.max()-x.min())
-    x = pd.Series(x, index=np.arange(len(x)))
-    AR_model = ARIMA(x, order=(1,0,0), trend='n')
-    res = AR_model.fit()
+    AR_model = ARIMA(x, order=(1,0,0), trend='n', enforce_stationarity=False)
+    res = AR_model.fit(method='burg')
     AR_phi = res.arparams[0]
     AR_sigma = res.params[-1]
 
-    dt = 1/len(x)
+    dt = 1
     theta_AR = -np.log(AR_phi)/dt
     sigma_AR = np.sqrt(AR_sigma * (2 * theta_AR / (1 - AR_phi**2)))
     
     return sigma_AR
 
+
 def mean_revertion_index(x : np.array) -> float:
     '''Calculate the mean-reverting index of a time series
     Args:
-        x : np.array : time series
+        x : np.array time series
     Returns:
         float : mean-reverting index from 0 to 1
     '''
-    return volatility(x)/amplitude(x)
+    return 1 / ( 1 + np.exp(12*volatility(x) / find_amplitudes(x)-5))
+
+
+def savgol(s, window_length, polyorder):
+    from scipy.signal import savgol_filter
+    s_filtered = s.copy()
+    not_nan = s.notna()
+    groups = (not_nan.astype(int).diff().fillna(0) != 0).cumsum()
+    for _, group in s[not_nan].groupby(groups):
+        if len(group) >= window_length:
+            s_filtered[group.index] = savgol_filter(group.values, window_length, polyorder, mode="nearest")
+    return s_filtered
+
+def rectifiy_price(df, column="Close", window=180, polyorder=3):
+    from scipy.signal import savgol_filter
+    return (df[column] - savgol_filter(df[column], 180, 3)) / df[column]
