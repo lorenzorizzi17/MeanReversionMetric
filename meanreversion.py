@@ -407,3 +407,56 @@ def savgol(s, window_length, polyorder):
 def rectifiy_price(df, column="Close", window=180, polyorder=3):
     from scipy.signal import savgol_filter
     return (df[column] - savgol_filter(df[column], 180, 3)) / df[column]
+
+
+def mooving_average(x : np.array, n : int) -> np.array:
+    return np.convolve(x, np.ones(n), 'valid') / n
+
+def av(DF, N):
+    X=DF['Close'].to_numpy().flatten()
+    t=DF.index.to_numpy().flatten()
+    average = mooving_average(X, N)
+    return(average, t, X)
+
+
+def find_local_extrema(DF, threshold: float, N):
+    from scipy.signal import argrelextrema
+
+    average, t, X=av(DF, N)
+
+    max_indices = argrelextrema(average, np.greater)[0]
+    min_indices = argrelextrema(average, np.less)[0]
+
+    filtered_max_indices = []
+    filtered_min_indices = []
+
+    for i in range(1, min(len(max_indices), len(min_indices))):
+        if abs(average[max_indices[i]] - average[min_indices[i-1]]) >= threshold:
+            filtered_max_indices.append(max_indices[i])
+            filtered_min_indices.append(min_indices[i-1])
+
+
+    final_max_indices = [filtered_max_indices[0]] if filtered_max_indices else []
+    for i in range(1, len(filtered_max_indices)):
+        if abs(average[filtered_max_indices[i]] - average[filtered_max_indices[i-1]]) >= threshold:
+            final_max_indices.append(filtered_max_indices[i])
+
+    final_min_indices = [filtered_min_indices[0]] if filtered_min_indices else []
+    for i in range(1, len(filtered_min_indices)):
+        if abs(average[filtered_min_indices[i]] - average[filtered_min_indices[i-1]]) >= threshold:
+            final_min_indices.append(filtered_min_indices[i])
+
+    if final_min_indices and abs(average[0] - average[final_min_indices[0]]) >= threshold:
+        final_min_indices.insert(0, 0)
+    if final_min_indices and abs(average[-1] - average[final_min_indices[-1]]) >= threshold:
+        final_min_indices.append(len(average) - 1)
+
+        time_int = np.unique([x * 0.25 for x in final_min_indices])
+
+        min_distance=500
+        filtered_time_int = [time_int[0]]
+        for i in range(1, len(time_int)):
+            if abs(time_int[i] - filtered_time_int[-1]) > min_distance:
+                filtered_time_int.append(time_int[i])
+
+    return np.array(filtered_time_int)
