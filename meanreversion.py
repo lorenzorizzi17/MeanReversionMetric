@@ -273,9 +273,9 @@ def find_amplitudes(x : np.array) -> float:
     """
     from scipy.signal import find_peaks
     factor = 0.3
-    dist = factor*len(x)*np.mean(find_period(x))/(len(x))
-    max_peaks, _ = find_peaks(x, distance=dist, height=0.0)
-    min_peaks, _ = find_peaks(-x, distance=dist, height=0.0)
+    dist = factor*np.mean(find_period(x))
+    max_peaks, _ = find_peaks(x, distance=dist)
+    min_peaks, _ = find_peaks(-x, distance=dist)
     return np.mean(np.concatenate((x[max_peaks], -x[min_peaks])))
 
 def find_period_fft(x : np.array) -> float:
@@ -394,6 +394,7 @@ def mean_revertion_index(x : np.array) -> float:
 
 
 def savgol(s, window_length, polyorder):
+    '''Apply Savitzky-Golay filter to a time series with NaN values'''
     from scipy.signal import savgol_filter
     s_filtered = s.copy()
     not_nan = s.notna()
