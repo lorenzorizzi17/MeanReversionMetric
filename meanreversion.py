@@ -121,7 +121,7 @@ def draw_info(data : pd.DataFrame, start = None, end = None, kind = "default"):
     None: This function does not return any value. It displays a plot of the closing prices over time.
     """
     # One can visualize the time series in a naive way by simply plotting the closing price as a function of time
-    fig, ax = plt.subplots(figsize=(10,8))
+    fig, ax = plt.subplots(figsize=(8,6))
 
     # A zoomed view of the same dataset reveals the small differences between closing and opening prices
     # N.B. the plot shows discontinuities due to the weekend breaks, but that's only cause I'm plotting against the columns "AbsTime"
@@ -145,6 +145,7 @@ def draw_info(data : pd.DataFrame, start = None, end = None, kind = "default"):
     ax.set_ylabel("Price (a.u.)")
 
     fig.tight_layout()
+    ax.grid()
     plt.show()
 
 
