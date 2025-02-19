@@ -22,7 +22,7 @@ def download_asset(ticker_symbol : str, start : str, end : str) -> pd.DataFrame:
     pd.DataFrame: A DataFrame containing the historical stock data with columns 'Open', 'High', 'Low', 'Close', 'Vol', and 'AbsTime'.
     """
     # download the data from Yahoo Finance
-    download_asset = yf.download(ticker_symbol, start=start, end=end)
+    download_asset = yf.download(ticker_symbol, start=start, end=end, progress=False, auto_adjust=True)
 
     # adapt the dataframe to the previous format
     len_dataset = len(download_asset)
