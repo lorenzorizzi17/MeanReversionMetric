@@ -177,18 +177,19 @@ def assess_normality(dataset : pd.Series, lambda_ : int, ax = None) -> float:
         #filtered data, chosen approx every lambda points
         chosen_data = (dataset.values)[choice]
         x = np.concatenate((x,chosen_data), axis = 0)
-    if (ax is not None):
-        bin_edges = np.arange(np.min(x), np.max(x), 50)
-        ax.hist(x, bins = "auto", density=True, edgecolor = "black")
-        ax.set_title(f"Input dataset has {len(dataset)} points"+ '\n'+f"Sampling every ~ {lambda_} points, repeating {n} times " + '\n' + f"Total number of points in the distr: {len(x)}" )
-
-
+    
     dev_from_normality = anderson(x).statistic
     # we want to normalize tha value so that it is between 0 and 1
     # when dev is high (high deviations), the process is not very gaussian distributed, so we want to return a value close to 1
     # when dev is low, the process is white noise-like, so we want to return a value close to 0
     #normalized_norm = 2/(1+ np.exp(- dev_from_normality / 10)) - 1    # but maybe work on the normalization, this a sigma / 10
     normalized_norm = erf(dev_from_normality /( 0.4*lambda_))
+
+    if (ax is not None):
+        bin_edges = np.arange(np.min(x), np.max(x), 50)
+        ax.hist(x, bins = "auto", density=True, edgecolor = "black")
+        ax.set_title(f"Total sample size = {len(x)} \n$\\lambda={lambda_}$\nMRI = {normalized_norm:.3f}" )
+
     return normalized_norm
 
 def assess_normality_rolling(dataset, lambda_ : int, ax = None) -> float:
