@@ -20,13 +20,8 @@ Based on the temporal trend of a financial dataset, we can identify different ch
 
 
 
-
-## The algorithm (WIP)
-
-1) We first verify whether the dataset has a _clear growing or decreasing trend_ (case [1]), in which case the dataset for sure isn't mean-reverting. It could still be possible that, when substracting the global trend of the time series, what we have left is a mean-reverting process, but we haven't worked on that.
-To assess the _trendness_ of a dataset, we built a function `find_trend_mean(dataset)` that performs a linear fit on the experimental points and computes the statistical fit accuracy ($R^2$). If the confidence level is high and the slope of the fit is greater (in absolute value) than a fixed threshold, thenwe can conclude that a linear trend exists and label the dataset as a non mean-reverting
-
-2) If the dataset is stationary, we can determine whether the oscillations around the average are purely stochastic or follow a more robust oscillatory trend. We define a metric $\eta$ such that $0 < \eta < 1$ if the dataset in a given time window $[a,b]$ is stationary and:
+## The MR index
+Let us define a metric $\eta$ such that $0 < \eta < 1$ if the dataset in a given time window $[a,b]$ is stationary and:
 
 $$
 \eta =
@@ -36,10 +31,14 @@ $$
 \end{cases}
 $$
 
+We implemented two different algorithms whose objective is to evaluate the MRI $\eta$ over a given dataframe. The first approach merges together the theory of stochastic processes with autoregressive models to extract meaningful properties of the dataset, such as its amplitude and volatility. Combining those quantities, one can obtain a first metric capable of estimating $\eta$. In the second approach, we randomly sample points from the dataset and perform some statistical computations on the their distribution. The MRI $\eta$ can then be associated to the _normality_ of the resulting distribution. 
 
-3) ALGORITHM 1 (ALE): FOURIER/TIME DETECTIONS --> outputs a value of $\eta$
-4) ALGORITHM 2 (LO): STATISTICAL HISTO --> outputs a value of $\eta$
-5) ALGORITHM 3 (ALE): STOCHASTIC/ARM AUTOREG --> outputs a value of $\eta$
-5.1) All of this algorithm can be turned into a instanteneous version? WIP
+These procedures can be easily adapted into a _rolling algorithm_, i.e. an algorithm that provides an instantaneous estimation of the MRI. Using this local information, we tried to develop a financial buying/selling strategy
 
-6) Financial strategy (RIC): based on the $\eta$ value, one can implement a financial strategy ...
+## Structure of the repository
+This repository is divided into different Python notebooks and files. The most important ones are:
+- `MeanReversion.ipynb`: The general Python notebook where the main analysis and implementation of the mean reversion metric are presented. The called functions are not directly implemented in this notebook but are imported from an external module 
+- `meanreversion.py`: A Python module that contains the actual implementation of all the functions used in this project
+- `data/`: This directory contains the financial datasets used for testing and validating the algorithms.
+
+
